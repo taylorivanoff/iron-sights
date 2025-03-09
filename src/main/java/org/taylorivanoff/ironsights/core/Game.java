@@ -1,15 +1,11 @@
 package org.taylorivanoff.ironsights.core;
 
-import org.joml.Matrix4f;
-import org.taylorivanoff.ironsights.graphics.Camera;
-import org.taylorivanoff.ironsights.graphics.Model;
-import org.taylorivanoff.ironsights.graphics.Renderer;
+import org.taylorivanoff.ironsights.ecs.*;
+import org.taylorivanoff.ironsights.ecs.components.*;
+import org.taylorivanoff.ironsights.systems.*;
 
 public class Game {
     private Window window;
-    private Renderer renderer;
-    private Camera camera;
-    private Model monkey;
 
     public void run() {
         init();
@@ -19,16 +15,6 @@ public class Game {
 
     private void init() {
         window = new Window(1280, 720, "Iron Sights");
-        camera = new Camera(window.getWidth(), window.getHeight());
-        renderer = new Renderer();
-        Input.init(window.getWindowHandle());
-
-        try {
-            monkey = ResourceManager.getInstance().loadModel(
-                    "assets/models/monkey.obj",
-                    "assets/textures/cube.png");
-        } catch (Exception ex) {
-        }
     }
 
     /**
@@ -37,42 +23,33 @@ public class Game {
      * ░▀▀▀░▀░▀░▀░▀░▀▀▀░░░▀▀▀░▀▀▀░▀▀▀░▀░░
      */
     private void loop() {
+        EntityManager em = EntityManager.get();
+        em.addSystem(new InputSystem(window.getWindowHandle()));
+        em.addSystem(new RenderSystem());
+
+        // Create player entity
+        Entity player = em.createEntity();
+
+        // Add components to the player
+        player.addComponent(new Transform()); // Position, rotation, scale
+        player.addComponent(new Camera()); // View and projection matrices
+        player.addComponent(new Player()); // Player-specific data (optional)
+
+        // Initialize camera projection
+        Camera cam = player.getComponent(Camera.class);
+        cam.updateProjection(window.getWidth(), window.getHeight());
+
+        // Main loop
         while (!window.shouldClose()) {
             Time.update();
-            Input.update();
 
-            update();
-            render();
+            em.updateSystems(Time.getDeltaTime());
 
             window.update();
         }
     }
 
-    /**
-     * ░█░█░█▀█░█▀▄░█▀█░▀█▀░█▀▀░░░█░░░█▀█░█▀█░█▀█
-     * ░█░█░█▀▀░█░█░█▀█░░█░░█▀▀░░░█░░░█░█░█░█░█▀▀
-     * ░▀▀▀░▀░░░▀▀░░▀░▀░░▀░░▀▀▀░░░▀▀▀░▀▀▀░▀▀▀░▀░░
-     */
-    private void update() {
-        camera.update();
-    }
-
-    /**
-     * ░█▀▄░█▀▀░█▀█░█▀▄░█▀▀░█▀▄░░░█░░░█▀█░█▀█░█▀█
-     * ░█▀▄░█▀▀░█░█░█░█░█▀▀░█▀▄░░░█░░░█░█░█░█░█▀▀
-     * ░▀░▀░▀▀▀░▀░▀░▀▀░░▀▀▀░▀░▀░░░▀▀▀░▀▀▀░▀▀▀░▀░░
-     */
-    private void render() {
-        renderer.clear();
-
-        // Render game objects here
-        Matrix4f modelMatrix = new Matrix4f().translate(4, 0, 0); // Move cube 5 units away from camera
-        renderer.renderModel(monkey, modelMatrix, camera);
-    }
-
     private void cleanup() {
-        monkey.cleanup();
-        renderer.cleanup();
         window.cleanup();
     }
 

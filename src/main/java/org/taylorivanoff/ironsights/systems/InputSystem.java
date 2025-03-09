@@ -1,19 +1,9 @@
-package org.taylorivanoff.ironsights.core;
+package org.taylorivanoff.ironsights.systems;
 
-import static org.lwjgl.glfw.GLFW.GLFW_CURSOR;
-import static org.lwjgl.glfw.GLFW.GLFW_CURSOR_DISABLED;
-import static org.lwjgl.glfw.GLFW.GLFW_CURSOR_NORMAL;
-import static org.lwjgl.glfw.GLFW.GLFW_KEY_ESCAPE;
-import static org.lwjgl.glfw.GLFW.GLFW_KEY_LAST;
-import static org.lwjgl.glfw.GLFW.GLFW_PRESS;
-import static org.lwjgl.glfw.GLFW.GLFW_RELEASE;
-import static org.lwjgl.glfw.GLFW.glfwGetWindowSize;
-import static org.lwjgl.glfw.GLFW.glfwSetCursorPos;
-import static org.lwjgl.glfw.GLFW.glfwSetCursorPosCallback;
-import static org.lwjgl.glfw.GLFW.glfwSetInputMode;
-import static org.lwjgl.glfw.GLFW.glfwSetKeyCallback;
+import static org.lwjgl.glfw.GLFW.*;
+import org.taylorivanoff.ironsights.ecs.*;
 
-public class Input {
+public class InputSystem extends GameSystem {
     private static boolean[] keys = new boolean[GLFW_KEY_LAST + 1];
     private static double mouseX, mouseY;
     private static double mouseDX, mouseDY;
@@ -23,11 +13,9 @@ public class Input {
     private static boolean cursorLocked = false;
     public static boolean ignoreInput = true;
     private static boolean ignoreNextMouseInput = false;
+    private boolean focused = false;
 
-    public static void init(long window) {
-        windowHandle = window;
-
-        // Keyboard input
+    public InputSystem(long window) {
         glfwSetKeyCallback(window, (w, key, scancode, action, mods) -> {
             keys[key] = action != GLFW_RELEASE;
 
@@ -36,12 +24,10 @@ public class Input {
             }
         });
 
-        // Mouse input
         glfwSetCursorPosCallback(window, (w, xPos, yPos) -> {
             mouseX = xPos;
             mouseY = yPos;
 
-            // Handle first mouse movement
             if (firstMouse || !cursorLocked) {
                 lastMouseX = mouseX;
                 lastMouseY = mouseY;
@@ -49,9 +35,41 @@ public class Input {
             }
         });
 
-        // Start with input disabled
+        glfwSetMouseButtonCallback(window, (w, button, action, mods) -> {
+            if (button == GLFW_MOUSE_BUTTON_LEFT && action == GLFW_PRESS) {
+                if (!isCursorLocked() && focused) {
+                    setCursorLocked(true);
+                }
+            }
+        });
+
+        glfwSetWindowFocusCallback(window, (w, focused) -> {
+            if (!focused) {
+                setCursorLocked(false);
+            }
+        });
+
         setCursorLocked(false);
         ignoreInput = true;
+    }
+
+    @Override
+    public void update(float deltaTime) {
+        if (ignoreInput)
+            return;
+
+        if (ignoreNextMouseInput) {
+            ignoreNextMouseInput = false;
+            lastMouseX = mouseX;
+            lastMouseY = mouseY;
+            return;
+        }
+
+        mouseDX = mouseX - lastMouseX;
+        mouseDY = mouseY - lastMouseY;
+
+        lastMouseX = mouseX;
+        lastMouseY = mouseY;
     }
 
     public static boolean isInputIgnored() {
@@ -70,10 +88,8 @@ public class Input {
             double centerX = width[0] / 2.0;
             double centerY = height[0] / 2.0;
 
-            // Set actual cursor position
             glfwSetCursorPos(windowHandle, centerX, centerY);
 
-            // Update internal tracking without creating delta
             lastMouseX = centerX;
             lastMouseY = centerY;
             mouseX = centerX;
@@ -89,26 +105,6 @@ public class Input {
         return cursorLocked;
     }
 
-    public static void update() {
-        if (ignoreInput)
-            return;
-
-        if (ignoreNextMouseInput) {
-            ignoreNextMouseInput = false;
-            lastMouseX = mouseX;
-            lastMouseY = mouseY;
-            return;
-        }
-
-        // Calculate mouse movement delta
-        mouseDX = mouseX - lastMouseX;
-        mouseDY = mouseY - lastMouseY;
-
-        // Update last mouse position
-        lastMouseX = mouseX;
-        lastMouseY = mouseY;
-    }
-
     public static boolean isKeyDown(int key) {
         return !ignoreInput && keys[key];
     }
@@ -120,4 +116,5 @@ public class Input {
     public static double getMouseDY() {
         return mouseDY;
     }
+
 }

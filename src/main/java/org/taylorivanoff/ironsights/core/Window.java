@@ -1,48 +1,18 @@
 package org.taylorivanoff.ironsights.core;
 
-import java.nio.IntBuffer;
-
-import static org.lwjgl.glfw.GLFW.GLFW_CONTEXT_VERSION_MAJOR;
-import static org.lwjgl.glfw.GLFW.GLFW_CONTEXT_VERSION_MINOR;
-import static org.lwjgl.glfw.GLFW.GLFW_FALSE;
-import static org.lwjgl.glfw.GLFW.GLFW_MOUSE_BUTTON_LEFT;
-import static org.lwjgl.glfw.GLFW.GLFW_OPENGL_CORE_PROFILE;
-import static org.lwjgl.glfw.GLFW.GLFW_OPENGL_PROFILE;
-import static org.lwjgl.glfw.GLFW.GLFW_PRESS;
-import static org.lwjgl.glfw.GLFW.GLFW_RESIZABLE;
-import static org.lwjgl.glfw.GLFW.GLFW_TRUE;
-import static org.lwjgl.glfw.GLFW.GLFW_VISIBLE;
-import static org.lwjgl.glfw.GLFW.glfwCreateWindow;
-import static org.lwjgl.glfw.GLFW.glfwDefaultWindowHints;
-import static org.lwjgl.glfw.GLFW.glfwDestroyWindow;
-import static org.lwjgl.glfw.GLFW.glfwGetPrimaryMonitor;
-import static org.lwjgl.glfw.GLFW.glfwGetVideoMode;
-import static org.lwjgl.glfw.GLFW.glfwGetWindowSize;
-import static org.lwjgl.glfw.GLFW.glfwInit;
-import static org.lwjgl.glfw.GLFW.glfwMakeContextCurrent;
-import static org.lwjgl.glfw.GLFW.glfwPollEvents;
-import static org.lwjgl.glfw.GLFW.glfwSetFramebufferSizeCallback;
-import static org.lwjgl.glfw.GLFW.glfwSetMouseButtonCallback;
-import static org.lwjgl.glfw.GLFW.glfwSetWindowFocusCallback;
-import static org.lwjgl.glfw.GLFW.glfwSetWindowPos;
-import static org.lwjgl.glfw.GLFW.glfwShowWindow;
-import static org.lwjgl.glfw.GLFW.glfwSwapBuffers;
-import static org.lwjgl.glfw.GLFW.glfwSwapInterval;
-import static org.lwjgl.glfw.GLFW.glfwTerminate;
-import static org.lwjgl.glfw.GLFW.glfwWindowHint;
-import static org.lwjgl.glfw.GLFW.glfwWindowShouldClose;
-import org.lwjgl.glfw.GLFWErrorCallback;
-import org.lwjgl.glfw.GLFWVidMode;
-import static org.lwjgl.opengl.GL11.glViewport;
-import org.lwjgl.system.MemoryStack;
-import static org.lwjgl.system.MemoryStack.stackPush;
-import static org.lwjgl.system.MemoryUtil.NULL;
+import static org.lwjgl.glfw.Callbacks.*;
+import static org.lwjgl.glfw.GLFW.*;
+import org.lwjgl.glfw.*;
+import static org.lwjgl.glfw.Callbacks.*;
+import static org.lwjgl.glfw.GLFW.*;
+import org.lwjgl.opengl.*;
+import static org.lwjgl.opengl.GL11.*;
+import static org.lwjgl.system.MemoryUtil.*;
 
 public class Window {
     private long windowHandle;
     private int width;
     private int height;
-    private boolean focused = false;
 
     public Window(int width, int height, String title) {
         this.width = width;
@@ -68,27 +38,18 @@ public class Window {
             throw new IllegalStateException("Failed to create GLFW window");
         }
 
-        // Get the thread stack and push a new frame
-        try (MemoryStack stack = stackPush()) {
-            IntBuffer pWidth = stack.mallocInt(1); // int*
-            IntBuffer pHeight = stack.mallocInt(1); // int*
-
-            // Get the window size passed to glfwCreateWindow
-            glfwGetWindowSize(windowHandle, pWidth, pHeight);
-
-            // Get the resolution of the primary monitor
-            GLFWVidMode vidmode = glfwGetVideoMode(glfwGetPrimaryMonitor());
-
-            // Center the window
-            glfwSetWindowPos(
-                    windowHandle,
-                    (vidmode.width() - pWidth.get(0)) / 2,
-                    (vidmode.height() - pHeight.get(0)) / 2);
-        } // the stack frame is popped automatically
-
         // Set up OpenGL context
         glfwMakeContextCurrent(windowHandle);
-        glfwSwapInterval(0); // Enable vsync
+        GL.createCapabilities();
+
+        glfwSwapInterval(1); // Enable vsync
+
+        glfwShowWindow(windowHandle);
+
+        glEnable(GL_DEPTH_TEST);
+        glEnable(GL_CULL_FACE);
+        glCullFace(GL_BACK);
+        glClearColor(0.678f, 0.847f, 0.902f, 1.0f);
 
         // Set callbacks
         glfwSetFramebufferSizeCallback(windowHandle, (window, w, h) -> {
@@ -96,23 +57,6 @@ public class Window {
             this.height = h;
             glViewport(0, 0, w, h);
         });
-
-        glfwSetMouseButtonCallback(windowHandle, (window, button, action, mods) -> {
-            if (button == GLFW_MOUSE_BUTTON_LEFT && action == GLFW_PRESS) {
-                if (!Input.isCursorLocked() && focused) {
-                    Input.setCursorLocked(true);
-                }
-            }
-        });
-
-        glfwSetWindowFocusCallback(windowHandle, (window, focused) -> {
-            this.focused = focused;
-            if (!focused) {
-                Input.setCursorLocked(false);
-            }
-        });
-
-        glfwShowWindow(windowHandle);
     }
 
     public boolean shouldClose() {
@@ -125,6 +69,7 @@ public class Window {
     }
 
     public void cleanup() {
+        glfwFreeCallbacks(windowHandle);
         glfwDestroyWindow(windowHandle);
         glfwTerminate();
     }
@@ -141,7 +86,4 @@ public class Window {
         return height;
     }
 
-    public boolean isFocused() {
-        return focused;
-    }
 }

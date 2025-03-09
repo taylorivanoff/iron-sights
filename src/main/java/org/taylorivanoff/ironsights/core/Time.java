@@ -1,11 +1,13 @@
 package org.taylorivanoff.ironsights.core;
 
+import static org.lwjgl.glfw.GLFW.*;
+
 public class Time {
     private static double lastTime = 0;
     private static double deltaTime = 0;
 
     public static void update() {
-        double currentTime = System.nanoTime() / 1_000_000_000.0; // Convert to seconds
+        double currentTime = glfwGetTime();
         deltaTime = currentTime - lastTime;
         lastTime = currentTime;
     }
