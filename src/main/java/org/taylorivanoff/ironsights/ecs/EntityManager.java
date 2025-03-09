@@ -13,9 +13,13 @@ public class EntityManager {
         return instance;
     }
 
+    public List<Entity> getEntities() {
+        return entities;
+    }
+
     public Entity createEntity() {
         Entity e = new Entity();
-        entities.add(e);
+        getEntities().add(e);
         return e;
     }
 
@@ -24,8 +28,6 @@ public class EntityManager {
     }
 
     public void updateSystems(float deltaTime) {
-        for (GameSystem system : systems) {
-            system.update(deltaTime);
-        }
+        systems.forEach(system -> system.update(deltaTime));
     }
 }

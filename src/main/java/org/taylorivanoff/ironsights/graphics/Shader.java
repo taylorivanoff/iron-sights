@@ -1,64 +1,72 @@
 package org.taylorivanoff.ironsights.graphics;
 
-import java.nio.FloatBuffer;
-import java.nio.file.Files;
-import java.nio.file.Paths;
+import java.io.*;
+import java.nio.*;
+import java.nio.file.*;
 
-import org.joml.Matrix4f;
-import org.joml.Vector3f;
-import org.lwjgl.opengl.GL20;
-import org.lwjgl.system.MemoryStack;
+import org.joml.*;
+import static org.lwjgl.opengl.GL11.*;
+import org.lwjgl.opengl.*;
+import static org.lwjgl.opengl.GL11.*;
+import static org.lwjgl.opengl.GL20.*;
+import org.lwjgl.system.*;
 
 public class Shader {
-    private int programID;
-    private int vertexShaderID;
-    private int fragmentShaderID;
+    private final int programId;
 
     public Shader(String vertexPath, String fragmentPath) {
-        programID = GL20.glCreateProgram();
-        vertexShaderID = loadShader(vertexPath, GL20.GL_VERTEX_SHADER);
-        fragmentShaderID = loadShader(fragmentPath, GL20.GL_FRAGMENT_SHADER);
+        // Load and compile shaders
+        int vertexShader = loadShader(vertexPath, GL_VERTEX_SHADER);
+        int fragmentShader = loadShader(fragmentPath, GL_FRAGMENT_SHADER);
 
-        GL20.glAttachShader(programID, vertexShaderID);
-        GL20.glAttachShader(programID, fragmentShaderID);
-        GL20.glLinkProgram(programID);
-        GL20.glValidateProgram(programID);
+        // Link shaders into a program
+        programId = glCreateProgram();
+        glAttachShader(programId, vertexShader);
+        glAttachShader(programId, fragmentShader);
+        glLinkProgram(programId);
 
-        checkShaderError(programID, GL20.GL_LINK_STATUS, true, "Program linking failed");
-    }
-
-    private int loadShader(String path, int type) {
-        try {
-            String source = new String(Files.readAllBytes(Paths.get(path)));
-            int shaderID = GL20.glCreateShader(type);
-            GL20.glShaderSource(shaderID, source);
-            GL20.glCompileShader(shaderID);
-
-            checkShaderError(shaderID, GL20.GL_COMPILE_STATUS, false, "Shader compilation failed: " + path);
-            return shaderID;
-        } catch (Exception e) {
-            throw new RuntimeException("Failed to load shader: " + path, e);
+        // Check for linking errors
+        if (glGetProgrami(programId, GL_LINK_STATUS) == GL_FALSE) {
+            throw new RuntimeException("Shader program linking failed: " + glGetProgramInfoLog(programId));
         }
-    }
 
-    private void checkShaderError(int shaderID, int flag, boolean isProgram, String errorMessage) {
-        int success = isProgram ? GL20.glGetProgrami(shaderID, flag) : GL20.glGetShaderi(shaderID, flag);
-        if (success == GL20.GL_FALSE) {
-            String log = isProgram ? GL20.glGetProgramInfoLog(shaderID) : GL20.glGetShaderInfoLog(shaderID);
-            throw new RuntimeException(errorMessage + ": " + log);
-        }
+        // Clean up shaders
+        glDeleteShader(vertexShader);
+        glDeleteShader(fragmentShader);
     }
 
     public void bind() {
-        GL20.glUseProgram(programID);
+        glUseProgram(programId);
     }
 
     public void unbind() {
-        GL20.glUseProgram(0);
+        glUseProgram(0);
+    }
+
+    private int loadShader(String path, int type) {
+        String source = loadFile(path);
+        int shader = glCreateShader(type);
+        glShaderSource(shader, source);
+        glCompileShader(shader);
+
+        if (glGetShaderi(shader, GL_COMPILE_STATUS) == GL_FALSE) {
+            throw new RuntimeException("Shader compilation failed: " + glGetShaderInfoLog(shader));
+        }
+
+        return shader;
+    }
+
+    private String loadFile(String path) {
+        // Load file content as a string
+        try {
+            return new String(Files.readAllBytes(Paths.get(path)));
+        } catch (IOException e) {
+            throw new RuntimeException("Failed to load shader file: " + path, e);
+        }
     }
 
     public void setUniform4f(String name, Matrix4f value) {
-        int location = GL20.glGetUniformLocation(programID, name);
+        int location = GL20.glGetUniformLocation(programId, name);
         try (MemoryStack stack = MemoryStack.stackPush()) {
             FloatBuffer buffer = stack.mallocFloat(16);
             value.get(buffer);
@@ -67,26 +75,18 @@ public class Shader {
     }
 
     public void setUniform3f(String name, Vector3f value) {
-        int location = GL20.glGetUniformLocation(programID, name);
+        int location = GL20.glGetUniformLocation(programId, name);
         GL20.glUniform3f(location, value.x, value.y, value.z);
     }
 
     public void setUniform1f(String name, float value) {
-        int location = GL20.glGetUniformLocation(programID, name);
+        int location = GL20.glGetUniformLocation(programId, name);
         GL20.glUniform1f(location, value);
     }
 
     public void setUniform1i(String name, int value) {
-        int location = GL20.glGetUniformLocation(programID, name);
+        int location = GL20.glGetUniformLocation(programId, name);
         GL20.glUniform1i(location, value);
     }
 
-    public void cleanup() {
-        unbind();
-        GL20.glDetachShader(programID, vertexShaderID);
-        GL20.glDetachShader(programID, fragmentShaderID);
-        GL20.glDeleteShader(vertexShaderID);
-        GL20.glDeleteShader(fragmentShaderID);
-        GL20.glDeleteProgram(programID);
-    }
 }

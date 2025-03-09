@@ -1,120 +1,64 @@
 package org.taylorivanoff.ironsights.systems;
 
+import java.lang.Math;
+
+import org.joml.*;
 import static org.lwjgl.glfw.GLFW.*;
 import org.taylorivanoff.ironsights.ecs.*;
+import org.taylorivanoff.ironsights.ecs.components.*;
 
 public class InputSystem extends GameSystem {
-    private static boolean[] keys = new boolean[GLFW_KEY_LAST + 1];
-    private static double mouseX, mouseY;
-    private static double mouseDX, mouseDY;
-    private static double lastMouseX, lastMouseY;
-    private static boolean firstMouse = true;
-    private static long windowHandle;
-    private static boolean cursorLocked = false;
-    public static boolean ignoreInput = true;
-    private static boolean ignoreNextMouseInput = false;
-    private boolean focused = false;
+    private long window;
+    private final Vector2f mouseDelta = new Vector2f();
+    private final Vector2f lastMousePos = new Vector2f();
 
     public InputSystem(long window) {
-        glfwSetKeyCallback(window, (w, key, scancode, action, mods) -> {
-            keys[key] = action != GLFW_RELEASE;
-
-            if (key == GLFW_KEY_ESCAPE && action == GLFW_PRESS) {
-                setCursorLocked(false);
-            }
+        this.window = window;
+        glfwSetCursorPosCallback(window, (w, xpos, ypos) -> {
+            mouseDelta.set((float) xpos - lastMousePos.x, (float) ypos - lastMousePos.y);
+            lastMousePos.set((float) xpos, (float) ypos);
         });
-
-        glfwSetCursorPosCallback(window, (w, xPos, yPos) -> {
-            mouseX = xPos;
-            mouseY = yPos;
-
-            if (firstMouse || !cursorLocked) {
-                lastMouseX = mouseX;
-                lastMouseY = mouseY;
-                firstMouse = false;
-            }
-        });
-
-        glfwSetMouseButtonCallback(window, (w, button, action, mods) -> {
-            if (button == GLFW_MOUSE_BUTTON_LEFT && action == GLFW_PRESS) {
-                if (!isCursorLocked() && focused) {
-                    setCursorLocked(true);
-                }
-            }
-        });
-
-        glfwSetWindowFocusCallback(window, (w, focused) -> {
-            if (!focused) {
-                setCursorLocked(false);
-            }
-        });
-
-        setCursorLocked(false);
-        ignoreInput = true;
     }
 
-    @Override
     public void update(float deltaTime) {
-        if (ignoreInput)
-            return;
+        // Process player input
+        Entity player = EntityManager.get().getEntities().stream()
+                .filter(e -> e.hasComponent(Player.class))
+                .findFirst()
+                .orElse(null);
 
-        if (ignoreNextMouseInput) {
-            ignoreNextMouseInput = false;
-            lastMouseX = mouseX;
-            lastMouseY = mouseY;
-            return;
+        if (player != null) {
+            Transform t = player.getComponent(Transform.class);
+            Camera cam = player.getComponent(Camera.class);
+
+            // Mouse look
+            Vector2f delta = new Vector2f(mouseDelta).mul(0.1f);
+            t.rotation.y += delta.x;
+            t.rotation.x = Math.max(-89, Math.min(89, t.rotation.x - delta.y));
+
+            // Keyboard movement
+            Vector3f movement = new Vector3f();
+            if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS)
+                movement.z -= 1;
+            if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS)
+                movement.z += 1;
+            if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS)
+                movement.x -= 1;
+            if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS)
+                movement.x += 1;
+
+            movement.normalize().mul(5 * deltaTime);
+            t.position.add(movement.rotateY((float) Math.toRadians(t.rotation.y)));
+
+            // Update camera view matrix
+            cam.view.identity()
+                    .rotateXYZ(
+                            (float) Math.toRadians(-t.rotation.x),
+                            (float) Math.toRadians(-t.rotation.y),
+                            0)
+                    .translate(-t.position.x, -t.position.y, -t.position.z);
         }
 
-        mouseDX = mouseX - lastMouseX;
-        mouseDY = mouseY - lastMouseY;
-
-        lastMouseX = mouseX;
-        lastMouseY = mouseY;
+        mouseDelta.set(0, 0);
     }
-
-    public static boolean isInputIgnored() {
-        return ignoreInput;
-    }
-
-    public static void setCursorLocked(boolean locked) {
-        cursorLocked = locked;
-        glfwSetInputMode(windowHandle, GLFW_CURSOR,
-                locked ? GLFW_CURSOR_DISABLED : GLFW_CURSOR_NORMAL);
-
-        if (locked) {
-            // Center cursor without creating delta
-            int[] width = new int[1], height = new int[1];
-            glfwGetWindowSize(windowHandle, width, height);
-            double centerX = width[0] / 2.0;
-            double centerY = height[0] / 2.0;
-
-            glfwSetCursorPos(windowHandle, centerX, centerY);
-
-            lastMouseX = centerX;
-            lastMouseY = centerY;
-            mouseX = centerX;
-            mouseY = centerY;
-
-            ignoreNextMouseInput = true;
-        }
-
-        ignoreInput = !locked;
-    }
-
-    public static boolean isCursorLocked() {
-        return cursorLocked;
-    }
-
-    public static boolean isKeyDown(int key) {
-        return !ignoreInput && keys[key];
-    }
-
-    public static double getMouseDX() {
-        return mouseDX;
-    }
-
-    public static double getMouseDY() {
-        return mouseDY;
-    }
-
 }

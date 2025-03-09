@@ -6,7 +6,7 @@ import org.joml.*;
 
 public class Transform extends GameComponent {
     public Vector3f position = new Vector3f();
-    public Vector3f rotation = new Vector3f();
+    public Quaternionf rotation = new Quaternionf();
     public Vector3f scale = new Vector3f(1, 1, 1);
 
     public Matrix4f getModelMatrix() {
